@@ -1,13 +1,33 @@
 import { CalculationResult, TaxConfig, Region } from '../types';
-import { RATES, INSURANCE_CAP_BASE } from '../constants';
+import { RATES, EMPLOYER_RATES, INSURANCE_CAP_BASE } from '../constants';
 
-export const calculateInsurance = (gross: number, regionMinWage: number): number => {
-  const bhxh = Math.min(gross, INSURANCE_CAP_BASE) * RATES.BHXH;
-  const bhyt = Math.min(gross, INSURANCE_CAP_BASE) * RATES.BHYT;
-  const bhtnCap = 20 * regionMinWage;
-  const bhtn = Math.min(gross, bhtnCap) * RATES.BHTN;
+export const calculateInsurance = (inputSalary: number, regionMinWage: number) => {
+  // BHXH & BHYT are capped at 20 * Base Salary (Lương cơ sở)
+  const salaryForSocialHealth = Math.min(inputSalary, INSURANCE_CAP_BASE);
   
-  return bhxh + bhyt + bhtn;
+  // BHTN is capped at 20 * Regional Minimum Wage (Lương tối thiểu vùng)
+  const salaryForUnemployment = Math.min(inputSalary, 20 * regionMinWage);
+
+  // Employee Calculations (10.5%)
+  const empBhxh = salaryForSocialHealth * RATES.BHXH;
+  const empBhyt = salaryForSocialHealth * RATES.BHYT;
+  const empBhtn = salaryForUnemployment * RATES.BHTN;
+  const employeeTotal = empBhxh + empBhyt + empBhtn;
+
+  // Employer Calculations (21.5%)
+  const emrBhxh = salaryForSocialHealth * EMPLOYER_RATES.BHXH;
+  const emrBhyt = salaryForSocialHealth * EMPLOYER_RATES.BHYT;
+  const emrBhtn = salaryForUnemployment * EMPLOYER_RATES.BHTN;
+  const employerTotal = emrBhxh + emrBhyt + emrBhtn;
+  
+  return {
+    employee: employeeTotal,
+    employer: employerTotal,
+    details: {
+        salaryForSocialHealth,
+        salaryForUnemployment
+    }
+  };
 };
 
 export const calculateTax = (
@@ -26,20 +46,6 @@ export const calculateTax = (
   for (const bracket of config.brackets) {
     if (remainingIncome <= 0) break;
 
-    const range = bracket.max === null 
-      ? remainingIncome 
-      : bracket.max - bracket.min;
-    
-    // How much falls into this bracket
-    // If we are calculating iteratively, we need to see how much of the taxable income falls here.
-    // Easier way: 
-    // Check intersection of [bracket.min, bracket.max] and [0, taxableIncome]
-    // Since brackets are sequential, we can just take the chunk.
-    
-    // Correct logic for sequential calculation:
-    // Amount in this bracket = Math.min(taxableIncome, bracket.max) - bracket.min (but floored at 0)
-    // Wait, simpler:
-    
     const lower = bracket.min;
     const upper = bracket.max ?? Infinity;
     

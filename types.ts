@@ -25,9 +25,10 @@ export interface CalculationResult {
   };
 }
 
+// 2026 Values (Nghị định 293/2025/NĐ-CP)
 export enum Region {
-  I = 4960000,
-  II = 4410000,
-  III = 3860000,
-  IV = 3250000,
+  I = 5310000,
+  II = 4730000,
+  III = 4140000,
+  IV = 3700000,
 }
