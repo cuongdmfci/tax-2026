@@ -15,17 +15,29 @@ export const calculateInsurance = (inputSalary: number, regionMinWage: number) =
   const employeeTotal = empBhxh + empBhyt + empBhtn;
 
   // Employer Calculations (21.5%)
-  const emrBhxh = salaryForSocialHealth * EMPLOYER_RATES.BHXH;
-  const emrBhyt = salaryForSocialHealth * EMPLOYER_RATES.BHYT;
-  const emrBhtn = salaryForUnemployment * EMPLOYER_RATES.BHTN;
-  const employerTotal = emrBhxh + emrBhyt + emrBhtn;
+  // Standard breakdown:
+  // BHXH: 17.5% = 17% (Social) + 0.5% (Accident/Disease - BHTNLĐ-BNN)
+  // BHYT: 3%
+  // BHTN: 1%
+  const emrBhxhMain = salaryForSocialHealth * 0.17; // 17%
+  const emrBhtnld = salaryForSocialHealth * 0.005; // 0.5%
+  const emrBhyt = salaryForSocialHealth * 0.03; // 3%
+  const emrBhtn = salaryForUnemployment * 0.01; // 1%
+
+  const employerTotal = emrBhxhMain + emrBhtnld + emrBhyt + emrBhtn;
   
   return {
     employee: employeeTotal,
     employer: employerTotal,
     details: {
         salaryForSocialHealth,
-        salaryForUnemployment
+        salaryForUnemployment,
+        employerBreakdown: {
+            bhxh: emrBhxhMain,
+            bhtnld: emrBhtnld,
+            bhyt: emrBhyt,
+            bhtn: emrBhtn
+        }
     }
   };
 };
@@ -57,7 +69,8 @@ export const calculateTax = (
       bracketDetails.push({
         label: bracket.label,
         amount: taxForBracket,
-        rate: bracket.rate
+        rate: bracket.rate,
+        taxableAmount: amountInBracket
       });
     }
   }

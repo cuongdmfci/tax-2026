@@ -21,7 +21,7 @@ export interface CalculationResult {
   details: {
     selfDeduction: number;
     dependentDeduction: number;
-    bracketDetails: { label: string; amount: number; rate: number }[];
+    bracketDetails: { label: string; amount: number; rate: number; taxableAmount: number }[];
   };
 }
 

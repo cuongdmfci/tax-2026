@@ -5,6 +5,9 @@ import { OLD_TAX_CONFIG, NEW_TAX_CONFIG } from './constants';
 import { calculateInsurance, calculateTax, formatCurrency } from './utils/taxLogic';
 import { ComparisonChart } from './components/ComparisonChart';
 import { InfoTable } from './components/InfoTable';
+import { DetailedBreakdown } from './components/DetailedBreakdown';
+import { TaxBracketDetailTable } from './components/TaxBracketDetailTable';
+import { EmployerCostTable } from './components/EmployerCostTable';
 
 const App: React.FC = () => {
   const [gross, setGross] = useState<number>(50000000);
@@ -395,7 +398,19 @@ const App: React.FC = () => {
               <ComparisonChart oldResult={oldResult} newResult={newResult} />
             </div>
 
-            {/* Detailed Table */}
+            {/* Detailed Breakdown */}
+            <DetailedBreakdown oldResult={oldResult} newResult={newResult} />
+
+            {/* Employer Cost Table */}
+            <EmployerCostTable gross={gross} employerDetails={calculatedInsurance.details.employerBreakdown} />
+
+            {/* Tax Bracket Detail Tables */}
+            <div className="space-y-6 mt-6">
+                <TaxBracketDetailTable result={oldResult} variant="old" />
+                <TaxBracketDetailTable result={newResult} variant="new" />
+            </div>
+
+            {/* Info Table */}
             <InfoTable />
 
           </div>
