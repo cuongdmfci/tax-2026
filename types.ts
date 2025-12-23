@@ -1,3 +1,4 @@
+
 export interface TaxBracket {
   min: number;
   max: number | null; // null means infinity
@@ -31,4 +32,12 @@ export enum Region {
   II = 4730000,
   III = 4140000,
   IV = 3700000,
+}
+
+// Before 2026 Values (User Requested)
+export enum RegionPre2026 {
+  I = 4960000,
+  II = 4160000,
+  III = 3640000,
+  IV = 3250000,
 }

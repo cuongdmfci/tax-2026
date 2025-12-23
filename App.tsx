@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight } from 'lucide-react';
-import { Region } from './types';
+import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
+import { Region, RegionPre2026 } from './types';
 import { OLD_TAX_CONFIG, NEW_TAX_CONFIG } from './constants';
 import { calculateInsurance, calculateTax, formatCurrency } from './utils/taxLogic';
 import { ComparisonChart } from './components/ComparisonChart';
@@ -9,19 +9,39 @@ import { DetailedBreakdown } from './components/DetailedBreakdown';
 import { TaxBracketDetailTable } from './components/TaxBracketDetailTable';
 import { EmployerCostTable } from './components/EmployerCostTable';
 
+type RegionTier = 'I' | 'II' | 'III' | 'IV';
+type InsurancePeriod = 'after_2026' | 'before_2026';
+
 const App: React.FC = () => {
   const [gross, setGross] = useState<number>(50000000);
   const [dependents, setDependents] = useState<number>(2);
-  const [region, setRegion] = useState<Region>(Region.I);
   
   // Insurance State
   const [insuranceMode, setInsuranceMode] = useState<'full' | 'manual'>('full');
+  const [insurancePeriod, setInsurancePeriod] = useState<InsurancePeriod>('after_2026');
+  const [regionTier, setRegionTier] = useState<RegionTier>('I');
   const [manualInsuranceSalary, setManualInsuranceSalary] = useState<number>(5310000);
 
-  // Sync manual default when region changes if user hasn't typed (optional UX, keeping simple for now)
-  // Ensure manual salary isn't below min wage for validation
+  // Derive current region value based on tier and period
+  const getRegionValue = (tier: RegionTier, period: InsurancePeriod) => {
+    if (period === 'after_2026') {
+       return Region[tier];
+    } else {
+       return RegionPre2026[tier];
+    }
+  };
+
+  const currentRegionMinWage = getRegionValue(regionTier, insuranceMode === 'manual' ? insurancePeriod : 'after_2026');
+
+  // Effect: Auto-update manual salary when Region or Period changes (Only in manual mode)
+  useEffect(() => {
+    if (insuranceMode === 'manual') {
+      setManualInsuranceSalary(currentRegionMinWage);
+    }
+  }, [regionTier, insurancePeriod, insuranceMode]);
+
   const insuranceSalary = insuranceMode === 'full' ? gross : manualInsuranceSalary;
-  const isInsuranceBelowMin = insuranceSalary < region;
+  const isInsuranceBelowMin = insuranceSalary < currentRegionMinWage;
 
   // Gross Input Handler
   const handleGrossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,7 +55,7 @@ const App: React.FC = () => {
     setManualInsuranceSalary(val);
   };
 
-  const calculatedInsurance = calculateInsurance(insuranceSalary, region);
+  const calculatedInsurance = calculateInsurance(insuranceSalary, currentRegionMinWage);
 
   const oldResult = calculateTax(
     gross, 
@@ -135,41 +155,13 @@ const App: React.FC = () => {
                 <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-teal-600" />
-                    Cấu hình Bảo hiểm (Từ 1/1/2026)
+                    Cấu hình Bảo hiểm
                   </h3>
 
-                  {/* Region Selection */}
+                  {/* 1. Insurance Mode Selection (Moved to Top) */}
                   <div className="mb-4">
-                    <label className="block text-xs text-gray-500 mb-2">
-                      Vùng (Quyết định mức lương tối thiểu)
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { label: 'Vùng I', val: Region.I, desc: 'HN, HCM' },
-                        { label: 'Vùng II', val: Region.II, desc: 'ĐN, HP' },
-                        { label: 'Vùng III', val: Region.III, desc: 'Bắc Ninh...' },
-                        { label: 'Vùng IV', val: Region.IV, desc: 'Khác' },
-                      ].map((r) => (
-                        <button 
-                          key={r.val}
-                          onClick={() => setRegion(r.val)}
-                          className={`px-2 py-2 text-xs rounded border transition-colors text-left
-                            ${region === r.val 
-                              ? 'bg-teal-50 border-teal-500 text-teal-700 font-medium' 
-                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                            }`}
-                        >
-                          <span className="block font-bold">{r.label}</span>
-                          <span className="block text-[10px] opacity-75">{formatCurrency(r.val)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Insurance Salary Mode */}
-                  <div className="space-y-3">
-                     <label className="block text-xs text-gray-500">Mức lương đóng bảo hiểm</label>
-                     <div className="flex items-center gap-4">
+                     <label className="block text-xs text-gray-500 mb-2">Mức lương đóng bảo hiểm</label>
+                     <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200">
                         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                           <input 
                             type="radio" 
@@ -191,35 +183,111 @@ const App: React.FC = () => {
                           Nhập mức đóng
                         </label>
                      </div>
-
-                     {insuranceMode === 'manual' && (
-                        <div className="animate-fade-in">
-                           <input
-                            type="text"
-                            inputMode="numeric"
-                            value={new Intl.NumberFormat('vi-VN').format(manualInsuranceSalary)}
-                            onChange={handleManualInsuranceChange}
-                            className={`block w-full rounded-md pl-3 pr-3 py-2 text-sm shadow-sm border
-                              ${isInsuranceBelowMin ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'}
-                            `}
-                          />
-                          {isInsuranceBelowMin && (
-                            <p className="text-xs text-red-500 mt-1 flex items-start gap-1">
-                              <AlertCircle size={12} className="mt-0.5" />
-                              Thấp hơn lương tối thiểu vùng ({formatCurrency(region)})
-                            </p>
-                          )}
-                        </div>
-                     )}
-                     
-                     {/* Info Alert */}
-                     <div className="bg-blue-50 p-2 rounded border border-blue-100 flex gap-2">
-                        <Info size={14} className="text-blue-500 mt-0.5 shrink-0" />
-                        <p className="text-[11px] text-blue-700 leading-tight">
-                          Từ 01/01/2026 (NĐ 293/2025), lương đóng BHXH không được thấp hơn lương tối thiểu vùng.
-                        </p>
-                     </div>
                   </div>
+
+                  {/* Manual Settings Container */}
+                  {insuranceMode === 'manual' && (
+                    <div className="space-y-4 mb-4 border-l-2 border-teal-100 pl-3">
+                      {/* 2. Manual Config: Period Selection */}
+                      <div className="animate-fade-in">
+                        <label className="block text-xs text-gray-500 mb-2 flex items-center gap-1">
+                            <Calendar size={12}/> Thời điểm áp dụng
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setInsurancePeriod('before_2026')}
+                              className={`px-3 py-2 text-xs rounded border transition-colors
+                                  ${insurancePeriod === 'before_2026'
+                                    ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                  }
+                              `}
+                            >
+                              Trước 1/1/2026
+                            </button>
+                            <button
+                              onClick={() => setInsurancePeriod('after_2026')}
+                              className={`px-3 py-2 text-xs rounded border transition-colors
+                                  ${insurancePeriod === 'after_2026'
+                                    ? 'bg-teal-50 border-teal-500 text-teal-700 font-bold'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                  }
+                              `}
+                            >
+                              Từ 1/1/2026
+                            </button>
+                        </div>
+                      </div>
+
+                      {/* 3. Region Selection */}
+                      <div className="animate-fade-in">
+                        <label className="block text-xs text-gray-500 mb-2">
+                          Vùng (Lương tối thiểu {insurancePeriod === 'before_2026' ? 'cũ' : 'mới'})
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(['I', 'II', 'III', 'IV'] as RegionTier[]).map((tier) => {
+                            // Determine value to show based on period
+                            const val = getRegionValue(tier, insurancePeriod);
+                            
+                            return (
+                              <button 
+                                key={tier}
+                                onClick={() => setRegionTier(tier)}
+                                className={`px-2 py-2 text-xs rounded border transition-colors text-left
+                                  ${regionTier === tier 
+                                    ? 'bg-teal-50 border-teal-500 text-teal-700 font-medium ring-1 ring-teal-500' 
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                  }`}
+                              >
+                                <span className="block font-bold">Vùng {tier}</span>
+                                <span className="block text-[10px] opacity-75">{formatCurrency(val)}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. Input Field (Always visible) */}
+                  <div className="space-y-2 animate-fade-in">
+                      <label className="block text-xs text-gray-500">
+                        Mức đóng cụ thể {insuranceMode === 'full' && '(Theo lương Gross)'}
+                      </label>
+                      <input
+                      type="text"
+                      inputMode="numeric"
+                      disabled={insuranceMode === 'full'}
+                      value={new Intl.NumberFormat('vi-VN').format(insuranceMode === 'full' ? gross : manualInsuranceSalary)}
+                      onChange={insuranceMode === 'manual' ? handleManualInsuranceChange : undefined}
+                      className={`block w-full rounded-md pl-3 pr-3 py-2 text-sm shadow-sm border
+                        ${insuranceMode === 'full'
+                          ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed'
+                          : isInsuranceBelowMin 
+                            ? 'border-red-300 focus:border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
+                        }
+                      `}
+                    />
+                    {insuranceMode === 'manual' && isInsuranceBelowMin && (
+                      <p className="text-xs text-red-500 mt-1 flex items-start gap-1">
+                        <AlertCircle size={12} className="mt-0.5" />
+                        Thấp hơn lương tối thiểu vùng ({formatCurrency(currentRegionMinWage)})
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Info Alert */}
+                  <div className="bg-blue-50 p-2 rounded border border-blue-100 flex gap-2 mt-3">
+                      <Info size={14} className="text-blue-500 mt-0.5 shrink-0" />
+                      <p className="text-[11px] text-blue-700 leading-tight">
+                        {insuranceMode === 'manual' && insurancePeriod === 'before_2026' 
+                          ? 'Mức lương đóng BHXH không được thấp hơn lương tối thiểu vùng tại thời điểm đóng.'
+                          : 'Từ 01/01/2026 (NĐ 293/2025), lương đóng BHXH không được thấp hơn lương tối thiểu vùng mới.'
+                        }
+                      </p>
+                  </div>
+
                 </div>
                 
                 {/* Insurance Breakdown Table */}
