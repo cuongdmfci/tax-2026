@@ -71,7 +71,7 @@ export const DetailedBreakdown: React.FC<DetailedBreakdownProps> = ({ oldResult,
             <tr className="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-100">
               <th className="px-6 py-3 text-left font-medium">Khoản mục</th>
               <th className="px-6 py-3 text-right font-medium">Luật Cũ</th>
-              <th className="px-6 py-3 text-right font-medium">Luật Mới (1/7/2025)</th>
+              <th className="px-6 py-3 text-right font-medium">Luật Mới (1/7/2026)</th>
               <th className="px-6 py-3 text-right font-medium">Chênh lệch</th>
             </tr>
           </thead>

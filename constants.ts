@@ -21,7 +21,7 @@ export const EMPLOYER_RATES = {
 };
 
 export const OLD_TAX_CONFIG: TaxConfig = {
-  name: "Quy định hiện hành (Trước 1/7/2025)",
+  name: "Quy định hiện hành (Trước 1/7/2026)",
   selfDeduction: 11000000,
   dependentDeduction: 4400000,
   brackets: [
@@ -36,7 +36,7 @@ export const OLD_TAX_CONFIG: TaxConfig = {
 };
 
 export const NEW_TAX_CONFIG: TaxConfig = {
-  name: "Đề xuất mới (Từ 1/7/2025)",
+  name: "Đề xuất mới (Từ 1/7/2026)",
   selfDeduction: 15500000,
   dependentDeduction: 6200000,
   brackets: [

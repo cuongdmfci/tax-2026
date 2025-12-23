@@ -65,7 +65,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ oldResult, new
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6' }} />
           <Legend iconType="circle" />
           <Bar dataKey="Old" name="Quy định cũ" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="New" name="Đề xuất mới (1/7/2025)" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="New" name="Đề xuất mới (1/7/2026)" fill="#14b8a6" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

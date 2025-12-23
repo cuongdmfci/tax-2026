@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { Region, RegionPre2026 } from './types';
 import { OLD_TAX_CONFIG, NEW_TAX_CONFIG } from './constants';
@@ -13,14 +13,31 @@ type RegionTier = 'I' | 'II' | 'III' | 'IV';
 type InsurancePeriod = 'after_2026' | 'before_2026';
 
 const App: React.FC = () => {
-  const [gross, setGross] = useState<number>(50000000);
-  const [dependents, setDependents] = useState<number>(2);
+  // Helper to load state from localStorage
+  const loadState = <T,>(key: string, defaultValue: T): T => {
+    if (typeof window === 'undefined') return defaultValue;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error(`Error loading ${key} from localStorage`, e);
+    }
+    return defaultValue;
+  };
+
+  const [gross, setGross] = useState<number>(() => loadState('gross', 50000000));
+  const [dependents, setDependents] = useState<number>(() => loadState('dependents', 2));
   
   // Insurance State
-  const [insuranceMode, setInsuranceMode] = useState<'full' | 'manual'>('full');
-  const [insurancePeriod, setInsurancePeriod] = useState<InsurancePeriod>('after_2026');
-  const [regionTier, setRegionTier] = useState<RegionTier>('I');
-  const [manualInsuranceSalary, setManualInsuranceSalary] = useState<number>(5310000);
+  const [insuranceMode, setInsuranceMode] = useState<'full' | 'manual'>(() => loadState('insuranceMode', 'full'));
+  const [insurancePeriod, setInsurancePeriod] = useState<InsurancePeriod>(() => loadState('insurancePeriod', 'after_2026'));
+  const [regionTier, setRegionTier] = useState<RegionTier>(() => loadState('regionTier', 'I'));
+  const [manualInsuranceSalary, setManualInsuranceSalary] = useState<number>(() => loadState('manualInsuranceSalary', 5310000));
+
+  // Ref to track first render for auto-update logic
+  const isFirstRender = useRef(true);
 
   // Derive current region value based on tier and period
   const getRegionValue = (tier: RegionTier, period: InsurancePeriod) => {
@@ -34,11 +51,31 @@ const App: React.FC = () => {
   const currentRegionMinWage = getRegionValue(regionTier, insuranceMode === 'manual' ? insurancePeriod : 'after_2026');
 
   // Effect: Auto-update manual salary when Region or Period changes (Only in manual mode)
+  // Skip first render to preserve loaded localStorage value
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     if (insuranceMode === 'manual') {
       setManualInsuranceSalary(currentRegionMinWage);
     }
   }, [regionTier, insurancePeriod, insuranceMode]);
+
+  // Effect: Save state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('gross', JSON.stringify(gross));
+      localStorage.setItem('dependents', JSON.stringify(dependents));
+      localStorage.setItem('insuranceMode', JSON.stringify(insuranceMode));
+      localStorage.setItem('insurancePeriod', JSON.stringify(insurancePeriod));
+      localStorage.setItem('regionTier', JSON.stringify(regionTier));
+      localStorage.setItem('manualInsuranceSalary', JSON.stringify(manualInsuranceSalary));
+    } catch (e) {
+      console.error("Error saving state to localStorage", e);
+    }
+  }, [gross, dependents, insuranceMode, insurancePeriod, regionTier, manualInsuranceSalary]);
 
   const insuranceSalary = insuranceMode === 'full' ? gross : manualInsuranceSalary;
   const isInsuranceBelowMin = insuranceSalary < currentRegionMinWage;
@@ -86,15 +123,15 @@ const App: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <Calculator className="w-8 h-8" />
-                Tính Thuế TNCN 2025
+                Tính Thuế TNCN 2026
               </h1>
               <p className="mt-2 text-teal-100 text-lg">
-                Công cụ so sánh mức lương Net trước và sau thay đổi luật Thuế (01/07/2025)
+                Công cụ so sánh mức lương Net trước và sau thay đổi luật Thuế (01/07/2026)
               </p>
             </div>
             <div className="mt-4 md:mt-0 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
               <span className="text-sm font-medium">Ngày hiệu lực dự kiến: </span>
-              <span className="font-bold text-yellow-300">01/07/2025</span>
+              <span className="font-bold text-yellow-300">01/07/2026</span>
             </div>
           </div>
         </div>
