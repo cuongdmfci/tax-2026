@@ -28,14 +28,14 @@ export const TaxBracketDetailTable: React.FC<Props> = ({ result, variant = 'new'
   const footerBg = isOld ? 'bg-gray-50' : 'bg-teal-50/30';
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border ${isOld ? 'border-gray-200' : 'border-teal-100'} overflow-hidden flex flex-col`}>
+    <div className={`bg-white rounded-xl shadow-sm border ${isOld ? 'border-gray-200' : 'border-teal-100'} overflow-hidden`}>
       <div className={`px-5 py-4 border-b border-gray-100 ${headerBg}`}>
         <h3 className={`font-bold ${titleColor}`}>{title}</h3>
         <p className="text-xs text-gray-500 mt-1">
           Giảm trừ: {formatCurrency(selfDeduction + dependentDeduction)}
         </p>
       </div>
-      <div className="overflow-x-auto flex-grow">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-100">

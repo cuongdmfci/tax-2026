@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
+import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight, Calendar, Clock } from 'lucide-react';
 import { Region, RegionPre2026 } from './types';
 import { OLD_TAX_CONFIG, NEW_TAX_CONFIG } from './constants';
 import { calculateInsurance, calculateTax, formatCurrency } from './utils/taxLogic';
@@ -30,9 +30,11 @@ const App: React.FC = () => {
   const [gross, setGross] = useState<number>(() => loadState('gross', 50000000));
   const [dependents, setDependents] = useState<number>(() => loadState('dependents', 2));
   
+  // Global State
+  const [selectedPeriod, setSelectedPeriod] = useState<InsurancePeriod>(() => loadState('selectedPeriod', 'after_2026'));
+  
   // Insurance State
   const [insuranceMode, setInsuranceMode] = useState<'full' | 'manual'>(() => loadState('insuranceMode', 'full'));
-  const [insurancePeriod, setInsurancePeriod] = useState<InsurancePeriod>(() => loadState('insurancePeriod', 'after_2026'));
   const [regionTier, setRegionTier] = useState<RegionTier>(() => loadState('regionTier', 'I'));
   const [manualInsuranceSalary, setManualInsuranceSalary] = useState<number>(() => loadState('manualInsuranceSalary', 5310000));
 
@@ -48,7 +50,7 @@ const App: React.FC = () => {
     }
   };
 
-  const currentRegionMinWage = getRegionValue(regionTier, insuranceMode === 'manual' ? insurancePeriod : 'after_2026');
+  const currentRegionMinWage = getRegionValue(regionTier, selectedPeriod);
 
   // Effect: Auto-update manual salary when Region or Period changes (Only in manual mode)
   // Skip first render to preserve loaded localStorage value
@@ -61,7 +63,7 @@ const App: React.FC = () => {
     if (insuranceMode === 'manual') {
       setManualInsuranceSalary(currentRegionMinWage);
     }
-  }, [regionTier, insurancePeriod, insuranceMode]);
+  }, [regionTier, selectedPeriod, insuranceMode]);
 
   // Effect: Save state to localStorage whenever it changes
   useEffect(() => {
@@ -69,13 +71,13 @@ const App: React.FC = () => {
       localStorage.setItem('gross', JSON.stringify(gross));
       localStorage.setItem('dependents', JSON.stringify(dependents));
       localStorage.setItem('insuranceMode', JSON.stringify(insuranceMode));
-      localStorage.setItem('insurancePeriod', JSON.stringify(insurancePeriod));
+      localStorage.setItem('selectedPeriod', JSON.stringify(selectedPeriod));
       localStorage.setItem('regionTier', JSON.stringify(regionTier));
       localStorage.setItem('manualInsuranceSalary', JSON.stringify(manualInsuranceSalary));
     } catch (e) {
       console.error("Error saving state to localStorage", e);
     }
-  }, [gross, dependents, insuranceMode, insurancePeriod, regionTier, manualInsuranceSalary]);
+  }, [gross, dependents, insuranceMode, selectedPeriod, regionTier, manualInsuranceSalary]);
 
   const insuranceSalary = insuranceMode === 'full' ? gross : manualInsuranceSalary;
   const isInsuranceBelowMin = insuranceSalary < currentRegionMinWage;
@@ -94,20 +96,43 @@ const App: React.FC = () => {
 
   const calculatedInsurance = calculateInsurance(insuranceSalary, currentRegionMinWage);
 
+  // -------------------------------------------------------------------------
+  // Dynamic Configuration based on Selected Period (Global Logic)
+  // -------------------------------------------------------------------------
+  
+  // Old Law Config:
+  // - Before 2026: Uses Old Deductions (11M / 4.4M) + Old Brackets
+  // - After 2026: Uses New Deductions (15.5M / 6.2M) + Old Brackets (Comparison scenario)
+  const effectiveOldConfig = {
+    ...OLD_TAX_CONFIG,
+    selfDeduction: selectedPeriod === 'after_2026' ? 15500000 : 11000000,
+    dependentDeduction: selectedPeriod === 'after_2026' ? 6200000 : 4400000,
+    // Keep OLD brackets
+  };
+
+  // New Law Config:
+  // - ALWAYS uses New Deductions (15.5M / 6.2M) + New Brackets
+  const effectiveNewConfig = NEW_TAX_CONFIG;
+
+  // Result for "Old Law" (Brackets)
   const oldResult = calculateTax(
     gross, 
     dependents, 
-    OLD_TAX_CONFIG, 
+    effectiveOldConfig, 
     calculatedInsurance.employee
   );
 
+  // Result for "New Law" (Brackets)
   const newResult = calculateTax(
     gross, 
     dependents, 
-    NEW_TAX_CONFIG, 
+    effectiveNewConfig, 
     calculatedInsurance.employee
   );
+  // -------------------------------------------------------------------------
 
+  // Determine the "Active" result based on the top selector for display purposes
+  const activeResult = selectedPeriod === 'after_2026' ? newResult : oldResult;
   const diffNet = newResult.net - oldResult.net;
 
   // Helper for Income Before Tax (Gross - Insurance)
@@ -143,6 +168,45 @@ const App: React.FC = () => {
           {/* Left Column: Input */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 sticky top-6">
+              
+              {/* GLOBAL PERIOD SELECTOR - Moved to Top */}
+              <div className="mb-6 p-4 bg-teal-50/50 rounded-lg border border-teal-100">
+                <label className="block text-sm font-bold text-teal-800 mb-3 flex items-center gap-2">
+                    <Clock size={18}/> Thời điểm so sánh
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                    <button
+                        onClick={() => setSelectedPeriod('before_2026')}
+                        className={`px-3 py-3 text-sm rounded-lg border transition-all shadow-sm
+                            ${selectedPeriod === 'before_2026'
+                            ? 'bg-blue-600 border-blue-600 text-white font-bold ring-2 ring-blue-200'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                            }
+                        `}
+                    >
+                        Trước 1/1/2026
+                    </button>
+                    <button
+                        onClick={() => setSelectedPeriod('after_2026')}
+                        className={`px-3 py-3 text-sm rounded-lg border transition-all shadow-sm
+                            ${selectedPeriod === 'after_2026'
+                            ? 'bg-emerald-600 border-emerald-600 text-white font-bold ring-2 ring-emerald-200'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                            }
+                        `}
+                    >
+                        Từ 1/1/2026
+                    </button>
+                </div>
+                <p className="text-xs text-teal-700 mt-2 flex items-start gap-1">
+                   <Info size={14} className="mt-0.5 shrink-0"/>
+                   {selectedPeriod === 'before_2026' 
+                     ? 'Luật cũ: giảm trừ 11tr/4.4tr. Luật mới: giảm trừ 15.5tr/6.2tr.'
+                     : 'Cả 2 phương án đều áp dụng mức giảm trừ mới: 15.5tr/6.2tr.'
+                   }
+                </p>
+              </div>
+
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-teal-600" />
                 Thông tin thu nhập
@@ -195,7 +259,7 @@ const App: React.FC = () => {
                     Cấu hình Bảo hiểm
                   </h3>
 
-                  {/* 1. Insurance Mode Selection (Moved to Top) */}
+                  {/* 1. Insurance Mode Selection */}
                   <div className="mb-4">
                      <label className="block text-xs text-gray-500 mb-2">Mức lương đóng bảo hiểm</label>
                      <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200">
@@ -225,46 +289,15 @@ const App: React.FC = () => {
                   {/* Manual Settings Container */}
                   {insuranceMode === 'manual' && (
                     <div className="space-y-4 mb-4 border-l-2 border-teal-100 pl-3">
-                      {/* 2. Manual Config: Period Selection */}
-                      <div className="animate-fade-in">
-                        <label className="block text-xs text-gray-500 mb-2 flex items-center gap-1">
-                            <Calendar size={12}/> Thời điểm áp dụng
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setInsurancePeriod('before_2026')}
-                              className={`px-3 py-2 text-xs rounded border transition-colors
-                                  ${insurancePeriod === 'before_2026'
-                                    ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                  }
-                              `}
-                            >
-                              Trước 1/1/2026
-                            </button>
-                            <button
-                              onClick={() => setInsurancePeriod('after_2026')}
-                              className={`px-3 py-2 text-xs rounded border transition-colors
-                                  ${insurancePeriod === 'after_2026'
-                                    ? 'bg-teal-50 border-teal-500 text-teal-700 font-bold'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                  }
-                              `}
-                            >
-                              Từ 1/1/2026
-                            </button>
-                        </div>
-                      </div>
-
-                      {/* 3. Region Selection */}
+                      {/* Region Selection (Only visible in Manual Mode) */}
                       <div className="animate-fade-in">
                         <label className="block text-xs text-gray-500 mb-2">
-                          Vùng (Lương tối thiểu {insurancePeriod === 'before_2026' ? 'cũ' : 'mới'})
+                          Vùng (Lương tối thiểu {selectedPeriod === 'before_2026' ? 'cũ' : 'mới'})
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           {(['I', 'II', 'III', 'IV'] as RegionTier[]).map((tier) => {
                             // Determine value to show based on period
-                            const val = getRegionValue(tier, insurancePeriod);
+                            const val = getRegionValue(tier, selectedPeriod);
                             
                             return (
                               <button 
@@ -318,7 +351,7 @@ const App: React.FC = () => {
                   <div className="bg-blue-50 p-2 rounded border border-blue-100 flex gap-2 mt-3">
                       <Info size={14} className="text-blue-500 mt-0.5 shrink-0" />
                       <p className="text-[11px] text-blue-700 leading-tight">
-                        {insuranceMode === 'manual' && insurancePeriod === 'before_2026' 
+                        {selectedPeriod === 'before_2026' 
                           ? 'Mức lương đóng BHXH không được thấp hơn lương tối thiểu vùng tại thời điểm đóng.'
                           : 'Từ 01/01/2026 (NĐ 293/2025), lương đóng BHXH không được thấp hơn lương tối thiểu vùng mới.'
                         }
@@ -366,8 +399,8 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="flex justify-between text-sm text-gray-600 mt-3 pt-3 border-t border-gray-100">
-                        <span>Thu nhập tính thuế:</span>
-                        <span className="font-medium text-gray-900">{formatCurrency(newResult.taxableIncome > 0 ? newResult.taxableIncome : 0)}</span>
+                        <span>Thu nhập tính thuế ({selectedPeriod === 'before_2026' ? 'Cũ' : 'Mới'}):</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(activeResult.taxableIncome > 0 ? activeResult.taxableIncome : 0)}</span>
                     </div>
                 </div>
 
@@ -380,13 +413,17 @@ const App: React.FC = () => {
             
             {/* Top Cards: Net Income Comparison */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Old Card */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 relative overflow-hidden flex flex-col">
+              {/* Old Card - Dimmed if new period selected */}
+              <div className={`rounded-xl shadow-sm border relative overflow-hidden flex flex-col transition-all duration-300
+                  ${selectedPeriod === 'before_2026' 
+                    ? 'bg-white border-blue-400 ring-2 ring-blue-200 z-10 scale-[1.02]' 
+                    : 'bg-white/80 border-gray-200 opacity-75 grayscale-[0.5] hover:grayscale-0 hover:opacity-100'}
+              `}>
                 <div className="p-6 pb-4 relative">
                    <div className="absolute top-0 right-0 p-4 opacity-10">
                       <AlertCircle size={64} className="text-gray-500"/>
                    </div>
-                   <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-1">Luật Cũ</h3>
+                   <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-1">Luật Cũ ({selectedPeriod === 'after_2026' ? 'Giảm trừ mới' : 'Trước 2026'})</h3>
                    <div className="text-gray-400 text-xs mb-3 font-medium uppercase">Tổng thu nhập sau thuế (Net)</div>
                    <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-bold text-gray-700">
@@ -428,13 +465,17 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* New Card */}
-              <div className="bg-white rounded-xl shadow-md border border-teal-200 ring-2 ring-teal-50 relative overflow-hidden flex flex-col">
+              {/* New Card - Dimmed if old period selected */}
+              <div className={`rounded-xl shadow-md border relative overflow-hidden flex flex-col transition-all duration-300
+                  ${selectedPeriod === 'after_2026' 
+                    ? 'bg-white border-teal-500 ring-2 ring-teal-200 z-10 scale-[1.02]' 
+                    : 'bg-white/80 border-gray-200 opacity-75 grayscale-[0.5] hover:grayscale-0 hover:opacity-100'}
+              `}>
                  <div className="p-6 pb-4 relative">
                    <div className="absolute top-0 right-0 p-4 opacity-10">
                       <Wallet size={64} className="text-teal-600"/>
                    </div>
-                   <h3 className="text-teal-700 font-medium text-sm uppercase tracking-wider mb-1">Đề Xuất Mới</h3>
+                   <h3 className="text-teal-700 font-medium text-sm uppercase tracking-wider mb-1">Đề Xuất Mới (Sau 2026)</h3>
                    <div className="text-teal-600/70 text-xs mb-3 font-medium uppercase">Tổng thu nhập sau thuế (Net)</div>
                    <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-bold text-emerald-600">
@@ -477,7 +518,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Savings Highlight */}
+            {/* Savings Highlight - Only relevant if comparing Old vs New, or viewing New */}
             {diffNet > 0 && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between animate-fade-in">
                     <div className="flex items-center gap-3">
@@ -486,7 +527,7 @@ const App: React.FC = () => {
                         </div>
                         <div>
                             <p className="font-bold text-emerald-800 text-lg">Bạn tiết kiệm được {formatCurrency(diffNet)} / tháng</p>
-                            <p className="text-sm text-emerald-600">Thuế TNCN giảm {( (oldResult.tax - newResult.tax) / (oldResult.tax || 1) * 100 ).toFixed(1)}% so với quy định cũ.</p>
+                            <p className="text-sm text-emerald-600">Khi áp dụng luật mới so với quy định cũ.</p>
                         </div>
                     </div>
                 </div>
@@ -509,7 +550,7 @@ const App: React.FC = () => {
             {/* Employer Cost Table */}
             <EmployerCostTable gross={gross} employerDetails={calculatedInsurance.details.employerBreakdown} />
 
-            {/* Tax Bracket Detail Tables */}
+            {/* Tax Bracket Detail Tables - Show Active Only? Or Both? Let's show active first */}
             <div className="space-y-6 mt-6">
                 <TaxBracketDetailTable result={oldResult} variant="old" />
                 <TaxBracketDetailTable result={newResult} variant="new" />
