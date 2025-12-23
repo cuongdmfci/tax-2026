@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight, Calendar, Clock } from 'lucide-react';
+import { Calculator, Users, DollarSign, AlertCircle, ArrowUpCircle, Wallet, ShieldCheck, Info, Briefcase, ChevronDown, ChevronRight, Calendar, Clock, PiggyBank } from 'lucide-react';
 import { Region, RegionPre2026 } from './types';
 import { OLD_TAX_CONFIG, NEW_TAX_CONFIG } from './constants';
 import { calculateInsurance, calculateTax, formatCurrency } from './utils/taxLogic';
@@ -29,6 +29,7 @@ const App: React.FC = () => {
 
   const [gross, setGross] = useState<number>(() => loadState('gross', 50000000));
   const [dependents, setDependents] = useState<number>(() => loadState('dependents', 2));
+  const [otherCosts, setOtherCosts] = useState<number>(() => loadState('otherCosts', 0));
   
   // Global State
   const [selectedPeriod, setSelectedPeriod] = useState<InsurancePeriod>(() => loadState('selectedPeriod', 'after_2026'));
@@ -70,6 +71,7 @@ const App: React.FC = () => {
     try {
       localStorage.setItem('gross', JSON.stringify(gross));
       localStorage.setItem('dependents', JSON.stringify(dependents));
+      localStorage.setItem('otherCosts', JSON.stringify(otherCosts));
       localStorage.setItem('insuranceMode', JSON.stringify(insuranceMode));
       localStorage.setItem('selectedPeriod', JSON.stringify(selectedPeriod));
       localStorage.setItem('regionTier', JSON.stringify(regionTier));
@@ -77,7 +79,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Error saving state to localStorage", e);
     }
-  }, [gross, dependents, insuranceMode, selectedPeriod, regionTier, manualInsuranceSalary]);
+  }, [gross, dependents, otherCosts, insuranceMode, selectedPeriod, regionTier, manualInsuranceSalary]);
 
   const insuranceSalary = insuranceMode === 'full' ? gross : manualInsuranceSalary;
   const isInsuranceBelowMin = insuranceSalary < currentRegionMinWage;
@@ -86,6 +88,12 @@ const App: React.FC = () => {
   const handleGrossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value.replace(/\D/g, '')) || 0;
     setGross(val);
+  };
+
+  // Other Costs Input Handler
+  const handleOtherCostsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value.replace(/\D/g, '')) || 0;
+    setOtherCosts(val);
   };
 
   // Manual Insurance Input Handler
@@ -129,6 +137,10 @@ const App: React.FC = () => {
     effectiveNewConfig, 
     calculatedInsurance.employee
   );
+
+  // Apply "Other Costs" (After Tax) deduction
+  oldResult.net = Math.max(0, oldResult.net - otherCosts);
+  newResult.net = Math.max(0, newResult.net - otherCosts);
   // -------------------------------------------------------------------------
 
   // Determine the "Active" result based on the top selector for display purposes
@@ -251,6 +263,32 @@ const App: React.FC = () => {
                       className="block w-full rounded-md border-gray-300 pl-10 py-3 focus:border-teal-500 focus:ring-teal-500 shadow-sm border"
                     />
                   </div>
+                </div>
+
+                {/* Other Costs Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Chi phí khác (sau thuế)
+                  </label>
+                  <div className="relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <PiggyBank className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={new Intl.NumberFormat('vi-VN').format(otherCosts)}
+                      onChange={handleOtherCostsChange}
+                      className="block w-full rounded-md border-gray-300 pl-10 pr-12 py-3 focus:border-teal-500 focus:ring-teal-500 shadow-sm border"
+                      placeholder="0"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                      <span className="text-gray-500 sm:text-sm">VND</span>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500 italic">
+                      Khoản này sẽ được trừ trực tiếp vào thu nhập Net.
+                  </p>
                 </div>
 
                 <div className="border-t border-gray-100 pt-4">
@@ -462,6 +500,12 @@ const App: React.FC = () => {
                         <span className="text-gray-600">Thuế TNCN</span>
                         <span className="font-bold text-red-500">-{formatCurrency(oldResult.tax)}</span>
                     </div>
+                    {otherCosts > 0 && (
+                       <div className="flex justify-between items-center pt-2 border-t border-gray-200 border-dashed">
+                          <span className="text-gray-500 italic">Chi phí khác</span>
+                          <span className="font-medium text-gray-600">-{formatCurrency(otherCosts)}</span>
+                       </div>
+                    )}
                 </div>
               </div>
 
@@ -514,6 +558,12 @@ const App: React.FC = () => {
                         <span className="text-gray-600">Thuế TNCN</span>
                         <span className="font-bold text-red-500">-{formatCurrency(newResult.tax)}</span>
                     </div>
+                    {otherCosts > 0 && (
+                       <div className="flex justify-between items-center pt-2 border-t border-teal-200/50 border-dashed">
+                          <span className="text-gray-500 italic">Chi phí khác</span>
+                          <span className="font-medium text-gray-600">-{formatCurrency(otherCosts)}</span>
+                       </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -545,7 +595,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Detailed Breakdown */}
-            <DetailedBreakdown oldResult={oldResult} newResult={newResult} />
+            <DetailedBreakdown oldResult={oldResult} newResult={newResult} otherCosts={otherCosts} />
 
             {/* Employer Cost Table */}
             <EmployerCostTable gross={gross} employerDetails={calculatedInsurance.details.employerBreakdown} />

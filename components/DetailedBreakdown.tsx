@@ -5,10 +5,22 @@ import { formatCurrency } from '../utils/taxLogic';
 interface DetailedBreakdownProps {
   oldResult: CalculationResult;
   newResult: CalculationResult;
+  otherCosts?: number;
 }
 
-export const DetailedBreakdown: React.FC<DetailedBreakdownProps> = ({ oldResult, newResult }) => {
-  const rows = [
+interface BreakdownRow {
+  label: string;
+  oldVal: number;
+  newVal: number;
+  bold?: boolean;
+  isDeduction?: boolean;
+  subHeader?: boolean;
+  textClass?: string;
+  isNet?: boolean;
+}
+
+export const DetailedBreakdown: React.FC<DetailedBreakdownProps> = ({ oldResult, newResult, otherCosts = 0 }) => {
+  const rows: BreakdownRow[] = [
     { 
       label: 'Lương Gross', 
       oldVal: oldResult.gross, 
@@ -52,13 +64,24 @@ export const DetailedBreakdown: React.FC<DetailedBreakdownProps> = ({ oldResult,
       isDeduction: true,
       textClass: 'text-red-600 font-medium'
     },
-    { 
-      label: 'Lương Net (Thực nhận)', 
-      oldVal: oldResult.net, 
-      newVal: newResult.net,
-      isNet: true
-    },
   ];
+
+  if (otherCosts > 0) {
+    rows.push({
+      label: 'Chi phí khác (Sau thuế)',
+      oldVal: otherCosts,
+      newVal: otherCosts,
+      isDeduction: true,
+      textClass: 'text-gray-600 italic'
+    });
+  }
+
+  rows.push({ 
+    label: 'Lương Net (Thực nhận)', 
+    oldVal: oldResult.net, 
+    newVal: newResult.net,
+    isNet: true
+  });
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
