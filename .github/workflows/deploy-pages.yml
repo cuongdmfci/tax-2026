@@ -32,8 +32,9 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v3
 
+      # Use the newer upload-pages-artifact action (or a supported release)
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v2
         with:
           path: |
             dist
